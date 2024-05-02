@@ -17,6 +17,7 @@ module MiscDataTools
     end
 
     def call
+      check_for_imagemagick
       convert_files
       copy_non_jp2s
     end
@@ -39,6 +40,21 @@ module MiscDataTools
       File.join(File.dirname(source), "#{File.basename(source)}_conv")
     end
 
+    def check_for_imagemagick
+      `magick --version`
+      rescue
+      status = $?.exitstatus
+      case status
+      when 127
+        puts "Using this command requires ImageMagick to be installed and the "\
+          "`magick` command available on your PATH"
+        exit(status)
+      else
+        puts "Unknown error calling ImageMagick command. Status code "\
+          "returned: #{status}"
+        exit(status)
+      end
+    end
 
     def convert_files
       to_convert = jp2s
@@ -56,15 +72,30 @@ module MiscDataTools
     end
 
     def convert_file(file)
-      base = File.basename(file, ".jp2")
-      tpath = File.join(target, "#{base}.jpg")
-      do_conversion(file, tpath)
+      spath = File.join(source, file)
+      tpath = File.join(target, target_filename(file))
+      do_conversion(spath, tpath)
     end
 
     def do_conversion(srcfile, tpath)
       `magick #{srcfile} #{tpath}`
     rescue
-      logger.error(srcfile)
+      status = $?.exitstatus
+      logger.fatal("#{srcfile}\tstatus: #{status}")
+    else
+      status = $?.exitstatus
+      return if status == 0
+
+      statusstart = status.digits.last
+      if statusstart == 3
+        logger.warn("#{srcfile}\tstatus: #{status}")
+      elsif statusstart == 4
+        logger.error("#{srcfile}\tstatus: #{status}")
+      elsif statusstart == 5
+        logger.fatal("#{srcfile}\tstatus: #{status}")
+      else
+        logger.error("#{srcfile}\tstatus: #{status}")
+      end
     end
 
     def copy_non_jp2s
@@ -73,15 +104,13 @@ module MiscDataTools
       end
     end
 
-    def jp2s
-      allfiles.select { |file| is_jp2?(file) }
-        .map { |file| File.join(source, file) }
+    def target_filename(file)
+      "#{File.basename(file, ".jp2")}.jpg"
     end
 
-    def non_jp2s
-      allfiles.reject { |file| is_jp2?(file) }
-        .map { |file| File.join(source, file) }
-    end
+    def jp2s = allfiles.select { |file| is_jp2?(file) }
+
+    def non_jp2s = allfiles.reject { |file| is_jp2?(file) }
 
     def is_jp2?(file)
       File.extname(file) == ".jp2"
