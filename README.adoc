@@ -1,0 +1,15 @@
+= misc-data-tools
+
+== Usage
+
+`cd` into cloned directory.
+
+`bundle install`
+
+To see all the included tool commands:
+
+`thor list`
+
+To see detailed description/usage of an individual command, follow the pattern:
+
+`thor image help jp2_to_jpg`
